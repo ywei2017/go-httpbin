@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/mccutchen/go-httpbin/v2/httpbin"
+	"github.com/mdlayher/vsock"
 )
 
 const (
@@ -283,7 +284,16 @@ func listenAndServeGracefully(srv *http.Server, cfg *config, logger *log.Logger)
 		err = srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
 	} else {
 		logger.Printf("go-httpbin listening on http://%s", srv.Addr)
-		err = srv.ListenAndServe()
+                if strings.Contains(srv.Addr, "vsock") {
+			listener, err := vsock.Listen(uint32(cfg.ListenPort), nil)
+			if err != nil {
+				log.Fatal("Error setting up vsock listener: ", err)
+				return err
+			}
+			err = srv.Serve(listener)
+                } else {
+			err = srv.ListenAndServe()
+                }
 	}
 	if err != nil && err != http.ErrServerClosed {
 		return err
